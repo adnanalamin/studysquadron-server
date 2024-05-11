@@ -51,6 +51,14 @@ async function run() {
       res.send(result);
     });
 
+    // Delete Assignment
+    app.delete("/delete-assignment/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await assignmentsCollection.deleteOne(query);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
