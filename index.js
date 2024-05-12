@@ -1,5 +1,5 @@
 const express = require("express");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
@@ -28,9 +28,8 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-    const assignmentsCollection = client
-      .db("studysquadron")
-      .collection("assignments");
+    const assignmentsCollection = client.db("studysquadron").collection("assignments");
+    const submitAssignmentsCollection = client.db("studysquadron").collection("SubmitAssignments");
 
     // Get All Assignment
     app.get("/all-assignment", async (req, res) => {
@@ -44,10 +43,46 @@ async function run() {
       res.send(result);
     });
 
+    // Find Assignment by ID
+    app.get("/findassignment/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await assignmentsCollection.findOne(query);
+      res.send(result);
+    });
+
     // Save a assignments
     app.post("/assignment", async (req, res) => {
       const assignmentsData = req.body;
       const result = await assignmentsCollection.insertOne(assignmentsData);
+      res.send(result);
+    });
+
+    // Submit a assignments
+    app.post("/submit-assignment", async (req, res) => {
+      const assignmentsData = req.body;
+      const result = await submitAssignmentsCollection.insertOne(assignmentsData);
+      res.send(result);
+    });
+
+    // Update Assignment
+    app.put("/updateassignment/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedData = req.body;
+      const assignmentitems = {
+        $set: {
+          title: updatedData.title,
+          marks: updatedData.marks,
+          description: updatedData.description,
+          thumbnailimage: updatedData.thumbnailimage,
+          difficultyLevel: updatedData.difficultyLevel,
+          dueDate: updatedData.dueDate,
+          
+        },
+      };
+      const result = await assignmentsCollection.updateOne(filter, assignmentitems, options);
       res.send(result);
     });
 
