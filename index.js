@@ -51,6 +51,16 @@ async function run() {
       res.send(result);
     });
 
+    // Find Assignment by stutus
+    app.get("/findstatusassignment/:status", async (req, res) => {
+      const status = req.params.status;
+      const query = { status: status };
+      const result = await submitAssignmentsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    
+
     // Save a assignments
     app.post("/assignment", async (req, res) => {
       const assignmentsData = req.body;
