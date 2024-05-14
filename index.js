@@ -10,16 +10,33 @@ const app = express();
 
 const corsOptions = {
   origin: [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'https://solosphere.web.app',
+    "https://study-squadron.firebaseapp.com/",
+    "https://study-squadron.web.app/",
   ],
   credentials: true,
   optionSuccessStatus: 200,
-}
-app.use(cors(corsOptions))
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
+
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      console.error(err);
+      return res.status(401).send({ message: "Unauthorized access" });
+    }
+
+    req.user = decoded;
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.giatfyq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -35,7 +52,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const assignmentsCollection = client
       .db("studysquadron")
@@ -43,36 +60,33 @@ async function run() {
     const submitAssignmentsCollection = client
       .db("studysquadron")
       .collection("SubmitAssignments");
-    // const submitAssignmentMarks = client
-    //   .db("studysquadron")
-    //   .collection("assignmentsMarks");
 
-    // jwt 
-    app.post('/jwt', async (req, res) => {
-      const email = req.body
+    // jwt
+    app.post("/jwt", async (req, res) => {
+      const email = req.body;
       const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: '365d',
-      })
+        expiresIn: "365d",
+      });
       res
-        .cookie('token', token, {
+        .cookie("token", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
-        .send({ success: true })
-    })
+        .send({ success: true });
+    });
 
     // Clear token on logout
-    app.get('/logout', (req, res) => {
+    app.get("/logout", (req, res) => {
       res
-        .clearCookie('token', {
+        .clearCookie("token", {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
           maxAge: 0,
         })
-        .send({ success: true })
-    })
+        .send({ success: true });
+    });
 
     // Get All Assignment && Paginations
     app.get("/all-assignment", async (req, res) => {
@@ -83,15 +97,13 @@ async function run() {
       if (difficulty) {
         query = { difficultyLevel: difficulty };
       }
-        const result = await assignmentsCollection.find(query)
+      const result = await assignmentsCollection
+        .find(query)
         .skip(page * size)
         .limit(size)
         .toArray();
-        res.send(result);
-      
+      res.send(result);
     });
-    
-    
 
     // Find Assignment by ID
     app.get("/findassignment/:id", async (req, res) => {
@@ -109,30 +121,37 @@ async function run() {
       res.send(result);
     });
 
+    // Find Assignment by ID
+    app.get("/giveassignmentmarkshow/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await submitAssignmentsCollection.findOne(query);
+      res.send(result);
+    });
+
     // Find Assignment by stutus
-    app.get("/findstatusassignment/:status", async (req, res) => {
+    app.get("/findstatusassignment/:status", verifyToken, async (req, res) => {
       const status = req.params.status;
       const query = { status: status };
       const result = await submitAssignmentsCollection.find(query).toArray();
       res.send(result);
     });
 
-    app.get("/findsMyassignment/:email", async (req, res) => {
+    app.get("/findsMyassignment/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
-      let query = { userEmail: email };
-      if (req.query.status === "completed") {
-        query.status = "completed";
+      if (req.user.email !== req.params.email) {
+        return res.status(403).send({ message: "forbidden access" });
       }
+      let query = { userEmail: email };
+
       const result = await submitAssignmentsCollection.find(query).toArray();
       res.send(result);
     });
 
-    
-
-    app.get('/assignmentCount', async(req, res) => {
+    app.get("/assignmentCount", async (req, res) => {
       const count = await assignmentsCollection.estimatedDocumentCount();
-      res.send({count})
-    })
+      res.send({ count });
+    });
 
     // Save a assignments
     app.post("/assignment", async (req, res) => {
@@ -149,14 +168,6 @@ async function run() {
       );
       res.send(result);
     });
-    // Submit a assignments Marks
-    // app.post("/assignmentMark", async (req, res) => {
-    //   const assignmentsMarksData = req.body;
-    //   const result = await submitAssignmentMarks.insertOne(
-    //     assignmentsMarksData
-    //   );
-    //   res.send(result);
-    // });
 
     // Update Assignment status
     app.put("/updateassignmentmark/:id", async (req, res) => {
@@ -212,10 +223,10 @@ async function run() {
     });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // // Ensures that the client will close when you finish/error
     // await client.close();
