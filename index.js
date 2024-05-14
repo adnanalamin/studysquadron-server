@@ -12,6 +12,7 @@ const corsOptions = {
   origin: [
     "https://study-squadron.firebaseapp.com/",
     "https://study-squadron.web.app/",
+    "https://study-squadron.web.app",
   ],
   credentials: true,
   optionSuccessStatus: 200,
